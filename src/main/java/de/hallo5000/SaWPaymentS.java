@@ -15,15 +15,18 @@ import java.util.Properties;
 
 public class SaWPaymentS {
 
+    public static URI execPath;
+
     static void main() throws IOException, URISyntaxException {
-        URI path = Path.of(SaWPaymentS.class
+        // path in which the .jar is located
+        execPath = Path.of(SaWPaymentS.class
                     .getProtectionDomain()
                     .getCodeSource()
                     .getLocation()
                     .toURI()
-                ).getParent().resolve("defaults").toUri();
+                ).getParent().toUri();
 
-        File defaultsFile = new File(path);
+        File defaultsFile = new File(execPath.resolve("defaults"));
         defaultsFile.createNewFile();
         InputStream inputStream = new FileInputStream(defaultsFile);
 
@@ -32,24 +35,24 @@ public class SaWPaymentS {
         defaults.load(inputStream);
 
 
-        // HBCI4Java erwartet das Datum im ISO-Format (YYYY-MM-DD) als String
-        // oder als java.util.Date (intern wird es konvertiert).
+        // HBCI4Java wants ISO-format (YYYY-MM-DD) as String or as java.util.Date
         LocalDate now = LocalDate.now();
         LocalDate threeMonthsAgo = now.minusMonths(3);
 
         String startStr = threeMonthsAgo.format(DateTimeFormatter.ISO_LOCAL_DATE);
         String endStr = now.format(DateTimeFormatter.ISO_LOCAL_DATE);
 
-        // Auftrag für das Abrufen der Umsätze erzeugen
+        // create job for getting transactions of the last three months
         Job umsatzJob = new Job("KUmsAllCamt", new HashMap<>());
         umsatzJob.setParam("startdate", startStr);
         umsatzJob.setParam("enddate", endStr);
 
         JobHandler jobHandler = new JobHandler(defaults);
+        // all jobs of type "KUmsAll"/"KUmsAllCamt" have results of "GVRKUms"
         GVRKUms result = (GVRKUms) jobHandler.sendJob(umsatzJob);
 
 
-        // Alle Umsatzbuchungen ausgeben
+        // print transactions
         List<GVRKUms.UmsLine> buchungen = result.getFlatData();
         for(GVRKUms.UmsLine buchung : buchungen) {
             StringBuilder sb = new StringBuilder();
@@ -64,10 +67,9 @@ public class SaWPaymentS {
             List<String> zweck = buchung.usage;
             if (zweck != null && !zweck.isEmpty()) {
                 sb.append(" - ");
-                sb.append(zweck.getFirst()); // erste Zeile des Verwendungszwecks
+                sb.append(zweck.getFirst()); // first line of reference
             }
 
-            // Ausgeben der Umsatz-Zeile
             System.out.println(sb);
 
             FileOutputStream outputStream = new FileOutputStream(defaultsFile);
