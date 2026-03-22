@@ -26,13 +26,14 @@ public class SaWPaymentS {
                     .toURI()
                 ).getParent().toUri();
 
-        File defaultsFile = new File(execPath.resolve("defaults"));
-        defaultsFile.createNewFile();
-        InputStream inputStream = new FileInputStream(defaultsFile);
-
         Properties defaults = new Properties();
         defaults.load(SaWPaymentS.class.getClassLoader().getResourceAsStream("defaults"));
-        defaults.load(inputStream);
+
+        File defaultsFile = new File(execPath.resolve("defaults"));
+        if(!defaultsFile.createNewFile()){
+            InputStream inputStream = new FileInputStream(defaultsFile);
+            defaults.load(inputStream);
+        }
 
 
         // HBCI4Java wants ISO-format (YYYY-MM-DD) as String or as java.util.Date
@@ -43,7 +44,7 @@ public class SaWPaymentS {
         String endStr = now.format(DateTimeFormatter.ISO_LOCAL_DATE);
 
         // create job for getting transactions of the last three months
-        Job umsatzJob = new Job("KUmsAllCamt", new HashMap<>());
+        Job umsatzJob = new Job("KUmsAllCamt", new HashMap<>()); //lowlevel: KUmsZeitCamt
         umsatzJob.setParam("startdate", startStr);
         umsatzJob.setParam("enddate", endStr);
 
@@ -53,18 +54,18 @@ public class SaWPaymentS {
 
 
         // print transactions
-        List<GVRKUms.UmsLine> buchungen = result.getFlatData();
-        for(GVRKUms.UmsLine buchung : buchungen) {
-            StringBuilder sb = new StringBuilder();
-            sb.append(buchung.valuta);
+        List<GVRKUms.UmsLine> transactions = result.getFlatData();
+        for(GVRKUms.UmsLine transaction : transactions) {
+            StringBuilder sb = new StringBuilder(transaction.customerref+" | ");
+            sb.append(transaction.valuta);
 
-            Value v = buchung.value;
+            Value v = transaction.value;
             if (v != null) {
                 sb.append(": ");
                 sb.append(v);
             }
 
-            List<String> zweck = buchung.usage;
+            List<String> zweck = transaction.usage;
             if (zweck != null && !zweck.isEmpty()) {
                 sb.append(" - ");
                 sb.append(zweck.getFirst()); // first line of reference
@@ -72,8 +73,8 @@ public class SaWPaymentS {
 
             System.out.println(sb);
 
-            FileOutputStream outputStream = new FileOutputStream(defaultsFile);
-            defaults.store(outputStream, null);
         }
+        FileOutputStream outputStream = new FileOutputStream(defaultsFile);
+        defaults.store(outputStream, null);
     }
 }

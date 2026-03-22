@@ -2,6 +2,7 @@ package de.hallo5000;
 
 import java.io.Console;
 import java.io.File;
+import java.io.IOException;
 import java.util.*;
 
 import org.kapott.hbci.GV.HBCIJob;
@@ -29,16 +30,11 @@ public class JobHandler {
 
     private final static HBCIVersion VERSION = HBCIVersion.HBCI_300;
 
-    public HBCIJobResult sendJob(Job job){
+    public HBCIJobResult sendJob(Job job) throws IOException {
         Properties props = new Properties(); // optional parameters
-        props.setProperty("client.passport.default","PinTan"); // sets pin/tan as secmech
-        props.setProperty("client.passport.PinTan.init","1"); // initializes passport creation
-
         HBCIUtils.init(props,new MyHBCICallback());
-        //HBCIUtils.setParam("client.product.name","<your registration>");
 
-
-        System.out.println(HBCIUtils.getBankInfo(BLZ));
+        BLZ = defaults.getProperty("BLZ");
         if(BLZ == null || HBCIUtils.getBankInfo(BLZ) == null){
             System.out.println("BLZ eingeben:");
             BLZ = cliInput(false);
@@ -56,17 +52,23 @@ public class JobHandler {
         PIN = cliInput(true);
 
 
+        HBCIUtils.setParam("client.passport.default","PinTan"); // sets pin/tan as secmech
+        HBCIUtils.setParam("client.passport.PinTan.init","1"); // initializes passport creation
+        HBCIUtils.setParam("client.passport.PinTan.filename", SaWPaymentS.execPath.resolve("testpassport.dat").getPath());
+        HBCIUtils.setParam("client.passport.PinTan.host", HBCIUtils.getBankInfo(BLZ).getPinTanAddress()); // server address
+        HBCIUtils.setParam("client.passport.PinTan.port", "443"); // the servers tcp port (443 for pin/tan because it runs over https)
+        HBCIUtils.setParam("client.passport.PinTan.filter", "Base64"); // pin/tan encoded in base64
+        //HBCIUtils.setParam("client.product.name","<your registration>");
+
+
         // In the passport file the accounts/servers data is saved
         // the file will be generated if it's not existing and "client.passport.PinTan.init" is set to "1"
         // the file is saved next to the executing jar
         final File passportFile = new File(SaWPaymentS.execPath.resolve("testpassport.dat"));
+        passportFile.createNewFile();
 
-        HBCIPassport passport = AbstractHBCIPassport.getInstance(passportFile);
-        // passport config
+        HBCIPassport passport = AbstractHBCIPassport.getInstance("PinTan");
         passport.setCountry("DE");
-        passport.setHost(HBCIUtils.getBankInfo(BLZ).getPinTanAddress()); // server address
-        passport.setPort(443); // TCP-Port des Servers. Bei PIN/TAN immer 443, da das ja über HTTPS läuft.
-        passport.setFilterType("Base64"); // pin/tan encoded in base64
 
         // the actual HBCI-connection to the server in the initialization of it
         HBCIJobResult result;
@@ -87,6 +89,16 @@ public class JobHandler {
             if(!IBAN.isEmpty()) finalAcc = Arrays.stream(accounts).filter(k -> k.iban.equalsIgnoreCase(finalIBAN)).toList().getFirst();
 
             HBCIJob hbciJob = handle.newJob(job.getType());
+
+            /*
+            job.setParam("KTV.KIK.blz", "39050000");
+            job.setParam("KTV.number", "1070999600");
+            job.setParam("KTV.iban", "DE81390500001070999600");
+            job.setParam("KTV.bic", "AACSDE33XXX");
+            job.setParam("formats.suppformat", "camt.052.001.01");
+            job.setParam("allaccounts", "N");
+            job.setParam("KTV.KIK.country", "DE");
+            */
             hbciJob.setParam("my", finalAcc); // the account to be used
             for(String key : job.getParams().keySet()){
                 hbciJob.setParam(key, job.getParams().get(key));
