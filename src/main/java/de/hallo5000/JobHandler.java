@@ -2,16 +2,10 @@ package de.hallo5000;
 
 import java.io.Console;
 import java.io.File;
-import java.time.LocalDate;
-import java.time.format.DateTimeFormatter;
-import java.util.Arrays;
-import java.util.Date;
-import java.util.List;
-import java.util.Properties;
+import java.util.*;
 
 import org.kapott.hbci.GV.HBCIJob;
-import org.kapott.hbci.GV_Result.GVRKUms;
-import org.kapott.hbci.GV_Result.GVRKUms.UmsLine;
+import org.kapott.hbci.GV_Result.HBCIJobResult;
 import org.kapott.hbci.callback.AbstractHBCICallback;
 import org.kapott.hbci.manager.HBCIHandler;
 import org.kapott.hbci.manager.HBCIUtils;
@@ -20,30 +14,47 @@ import org.kapott.hbci.passport.AbstractHBCIPassport;
 import org.kapott.hbci.passport.HBCIPassport;
 import org.kapott.hbci.status.HBCIExecStatus;
 import org.kapott.hbci.structures.Konto;
-import org.kapott.hbci.structures.Value;
 
-public class accHistory {
+public class JobHandler {
 
     private static String BLZ;
     private static String USER;
     private static String PIN;
 
+    private final Properties defaults;
+
+    public JobHandler(Properties defaults){
+        this.defaults = defaults;
+    }
+
     private final static HBCIVersion VERSION = HBCIVersion.HBCI_300;
 
-    static void main(){
-        System.out.println("BLZ eingeben:");
-        BLZ = cliInput(false);
-        System.out.println("Username eingeben:");
-        USER = cliInput(false);
-        System.out.println("PIN eingeben:");
-        PIN = cliInput(true);
-
+    public HBCIJobResult sendJob(Job job){
         Properties props = new Properties(); // optional kernel parameter
         props.setProperty("client.passport.default","PinTan"); // Legt als Verfahren PIN/TAN fest.
         props.setProperty("client.passport.PinTan.init","1"); // Stellt sicher, dass der Passport initialisiert wird
 
         HBCIUtils.init(props,new MyHBCICallback());
         //HBCIUtils.setParam("client.product.name","<your registration>");
+
+
+        System.out.println(HBCIUtils.getBankInfo(BLZ));
+        if(BLZ == null || HBCIUtils.getBankInfo(BLZ) == null){
+            System.out.println("BLZ eingeben:");
+            BLZ = cliInput(false);
+            System.out.println("BLZ speichern? [Y/n]");
+            if(!cliInput(false).equalsIgnoreCase("n")) defaults.setProperty("BLZ", BLZ);
+        }
+        USER = defaults.getProperty("USER");
+        if(USER == null || USER.isEmpty()){
+            System.out.println("Username eingeben:");
+            USER = cliInput(false);
+            System.out.println("Username speichern? [Y/n]");
+            if(!cliInput(false).equalsIgnoreCase("n")) defaults.setProperty("USER", USER);
+        }
+        System.out.println("PIN eingeben:");
+        PIN = cliInput(true);
+
 
         // In der Passport-Datei speichert HBCI4Java die Daten des Bankzugangs (Bankparameterdaten, Benutzer-Parameter, etc.).
         // Die Datei kann problemlos gelöscht werden. Sie wird beim nächsten Mal automatisch neu erzeugt,
@@ -59,27 +70,29 @@ public class accHistory {
         passport.setFilterType("Base64"); // pin/tan encoded in base64
 
         // Das Handle ist die eigentliche HBCI-Verbindung zum Server + zum Server verbinden
+        HBCIJobResult result;
         try(HBCIHandler handle = new HBCIHandler(VERSION.getId(), passport)){
-            Konto[] konten = passport.getAccounts();
-            System.out.println(Arrays.toString(konten));
-            if(konten == null || konten.length == 0) error("Keine Konten ermittelbar");
+            Konto[] accounts = passport.getAccounts();
+            if(accounts == null || accounts.length == 0) error("Keine Konten ermittelbar");
 
-            Konto konto = Arrays.stream(konten).filter(k -> k.iban.equalsIgnoreCase("DE81390500001070999600")).toList().getFirst();
+            String IBAN = defaults.getProperty("IBAN");
+            if(IBAN == null || IBAN.isEmpty()){
+                System.out.println("IBAN eingeben:");
+                IBAN = cliInput(false);
+                System.out.println("IBAN speichern? [Y/n]");
+                if(!cliInput(false).equalsIgnoreCase("n")) defaults.setProperty("IBAN", IBAN);
+            }
 
-            // HBCI4Java erwartet das Datum im ISO-Format (YYYY-MM-DD) als String
-            // oder als java.util.Date (intern wird es konvertiert).
-            LocalDate now = LocalDate.now();
-            LocalDate threeMonthsAgo = now.minusMonths(3);
+            Konto finalAcc = accounts[0];
+            String finalIBAN = IBAN;
+            if(!IBAN.isEmpty()) finalAcc = Arrays.stream(accounts).filter(k -> k.iban.equalsIgnoreCase(finalIBAN)).toList().getFirst();
 
-            String startStr = threeMonthsAgo.format(DateTimeFormatter.ISO_LOCAL_DATE);
-            String endStr = now.format(DateTimeFormatter.ISO_LOCAL_DATE);
-
-            // Auftrag für das Abrufen der Umsätze erzeugen
-            HBCIJob umsatzJob = handle.newJob("KUmsAllCamt");
-            umsatzJob.setParam("my", konto); // festlegen, welches Konto abgefragt werden soll.
-            umsatzJob.setParam("startdate", startStr);
-            umsatzJob.setParam("enddate", endStr);
-            umsatzJob.addToQueue(); // Zur Liste der auszuführenden Aufträge hinzufügen
+            HBCIJob hbciJob = handle.newJob(job.getType());
+            hbciJob.setParam("my", finalAcc); // festlegen, welches Konto abgefragt werden soll.
+            for(String key : job.getParams().keySet()){
+                hbciJob.setParam(key, job.getParams().get(key));
+            }
+            hbciJob.addToQueue(); // Zur Liste der auszuführenden Aufträge hinzufügen
 
             // Alle Aufträge aus der Liste ausführen.
             HBCIExecStatus status = handle.execute();
@@ -89,36 +102,17 @@ public class accHistory {
 
             // Das Ergebnis des Jobs können wir auf "GVRKUms" casten. Jobs des Typs "KUmsAll"/"KUmsAllCamt"
             // liefern immer diesen Typ.
-            GVRKUms result = (GVRKUms) umsatzJob.getJobResult();
+            result = hbciJob.getJobResult();
 
-            // Prüfen, ob der Abruf der Umsätze geklappt hat
-            if(!result.isOK()) error(result.toString());
 
-            // Alle Umsatzbuchungen ausgeben
-            List<UmsLine> buchungen = result.getFlatData();
-            for(UmsLine buchung : buchungen){
-                StringBuilder sb = new StringBuilder();
-                sb.append(buchung.valuta);
 
-                Value v = buchung.value;
-                if(v != null){
-                    sb.append(": ");
-                    sb.append(v);
-                }
 
-                List<String> zweck = buchung.usage;
-                if(zweck != null && !zweck.isEmpty()){
-                    sb.append(" - ");
-                    sb.append(zweck.getFirst()); // erste Zeile des Verwendungszwecks
-                }
-
-                // Ausgeben der Umsatz-Zeile
-                log(sb.toString());
-            }
         }finally{ // Sicherstellen, dass Passport nach Beendigung geschlossen werden. (handle wird durchs try-with-resources geschlossen)
             passport.close();
         }
-
+        // Prüfen, ob der Abruf der Umsätze geklappt hat
+        if(!result.isOK()) error(result.toString());
+        return result;
     }
 
     /**
@@ -160,7 +154,7 @@ public class accHistory {
                 // Wir nehmen hier der Einfachheit halber direkt die PIN. In der Praxis
                 // sollte hier aber ein stärkeres Passwort genutzt werden.
                 // Die Ergebnis-Daten müssen in dem StringBuffer "retData" platziert werden.
-                case NEED_PASSPHRASE_LOAD:
+                case NEED_PASSPHRASE_LOAD: //fallthrough
                 case NEED_PASSPHRASE_SAVE:
                     retData.replace(0,retData.length(),PIN);
                     break;
@@ -181,6 +175,9 @@ public class accHistory {
                 // Hier muss lediglich ein Warte-Dialog mit einem OK/Fortsetzen-Button angezeigt werden,
                 // bis der User in der App die Zahlung freigegeben hat.
                 case NEED_PT_DECOUPLED:
+                    System.out.println(msg);
+                    System.out.println("press ENTER to proceed");
+                    cliInput(true);
                     break;
 
                 // Beim Verfahren smsTAN ist es möglich, mehrere Handynummern mit
@@ -206,14 +203,13 @@ public class accHistory {
 
                 // Manche Fehlermeldungen werden hier ausgegeben
                 case HAVE_ERROR:
-                    accHistory.log(msg);
+                    JobHandler.log(msg);
                     break;
 
                 default:
                     // Wir brauchen nicht alle der Callbacks
                     //removed: NEED_PT_QRTAN, NEED_PT_PHOTOTAN, HAVE_VOP_RESULT, NEED_PT_TAN, NEED_PT_SECMECH
                     break;
-
             }
         }
 
@@ -238,8 +234,7 @@ public class accHistory {
     public static String cliInput(boolean maskPwd) {
         Console console = System.console();
         if(console == null){
-            System.out.println("Couldn't get Console instance");
-            System.exit(0);
+            error("Couldn't get Console instance");
         }
 
         char[] inputArray = maskPwd ? console.readPassword() : console.readLine().toCharArray();

@@ -21,7 +21,7 @@ java {
 }
 
 application{
-    mainClass = "de.hallo5000.accHistory"
+    mainClass = "de.hallo5000.SaWPaymentS"
 }
 
 tasks.withType<Jar> {
