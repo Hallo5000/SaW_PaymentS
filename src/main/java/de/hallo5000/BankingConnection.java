@@ -5,6 +5,7 @@ import java.io.File;
 import java.io.IOException;
 import java.util.*;
 
+import de.hallo5000.datatypes.Job;
 import org.kapott.hbci.GV.HBCIJob;
 import org.kapott.hbci.GV_Result.HBCIJobResult;
 import org.kapott.hbci.callback.AbstractHBCICallback;
@@ -16,7 +17,7 @@ import org.kapott.hbci.passport.HBCIPassport;
 import org.kapott.hbci.status.HBCIExecStatus;
 import org.kapott.hbci.structures.Konto;
 
-public class JobHandler {
+public class BankingConnection {
 
     private static String BLZ;
     private static String USER;
@@ -24,7 +25,7 @@ public class JobHandler {
 
     private final Properties defaults;
 
-    public JobHandler(Properties defaults){
+    public BankingConnection(Properties defaults){
         this.defaults = defaults;
     }
 
@@ -184,7 +185,7 @@ public class JobHandler {
 
                 // some errors use this callback
                 case HAVE_ERROR:
-                    JobHandler.log(msg);
+                    BankingConnection.log(msg);
                     break;
 
                 default:

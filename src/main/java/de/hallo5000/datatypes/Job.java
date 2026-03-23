@@ -1,4 +1,4 @@
-package de.hallo5000;
+package de.hallo5000.datatypes;
 
 import java.util.HashMap;
 

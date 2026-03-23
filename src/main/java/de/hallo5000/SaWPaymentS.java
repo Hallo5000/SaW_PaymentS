@@ -1,5 +1,6 @@
 package de.hallo5000;
 
+import de.hallo5000.datatypes.Job;
 import org.kapott.hbci.GV_Result.GVRKUms;
 import org.kapott.hbci.structures.Value;
 
@@ -48,9 +49,9 @@ public class SaWPaymentS {
         umsatzJob.setParam("startdate", startStr);
         umsatzJob.setParam("enddate", endStr);
 
-        JobHandler jobHandler = new JobHandler(defaults);
+        BankingConnection bankingConnection = new BankingConnection(defaults);
         // all jobs of type "KUmsAll"/"KUmsAllCamt" have results of "GVRKUms"
-        GVRKUms result = (GVRKUms) jobHandler.sendJob(umsatzJob);
+        GVRKUms result = (GVRKUms) bankingConnection.sendJob(umsatzJob);
 
 
         // print transactions
