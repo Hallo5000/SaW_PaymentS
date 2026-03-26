@@ -1,5 +1,6 @@
 package de.hallo5000;
 
+import de.hallo5000.api.RESTendpoint;
 import de.hallo5000.datatypes.Job;
 import org.kapott.hbci.GV_Result.GVRKUms;
 import org.kapott.hbci.structures.Value;
@@ -19,6 +20,7 @@ public class SaWPaymentS {
     public static URI execPath;
 
     static void main() throws IOException, URISyntaxException {
+        new RESTendpoint().startHttpServer();
         // path in which the .jar is located
         execPath = Path.of(SaWPaymentS.class
                     .getProtectionDomain()
