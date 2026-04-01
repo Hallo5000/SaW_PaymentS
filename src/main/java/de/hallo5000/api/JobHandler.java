@@ -1,7 +1,9 @@
 package de.hallo5000.api;
 
 import de.hallo5000.BankingConnection;
+import de.hallo5000.PostgresManager;
 import de.hallo5000.datatypes.Job;
+import de.hallo5000.datatypes.Transaction;
 import org.kapott.hbci.GV_Result.GVRKUms;
 import org.kapott.hbci.structures.Value;
 
@@ -29,18 +31,12 @@ public class JobHandler {
         String endStr = now.format(DateTimeFormatter.ISO_LOCAL_DATE);
 
         // create job for getting transactions of the last three months
-        Job umsatzJob = new Job("KUmsAllCamt", new HashMap<>()); //lowlevel: KUmsZeitCamt
-        umsatzJob.setParam("startdate", startStr);
-        umsatzJob.setParam("enddate", endStr);
-
-        BankingConnection bankingConnection = new BankingConnection(defaults);
-        // all jobs of type "KUmsAll"/"KUmsAllCamt" have results of "GVRKUms"
-        GVRKUms result = (GVRKUms) bankingConnection.sendJob(umsatzJob);
-
-
-        // print transactions
-        List<GVRKUms.UmsLine> transactions = result.getFlatData();
+        List<GVRKUms.UmsLine> transactions = getUmsLines(startStr, endStr);
+        PostgresManager pm = new PostgresManager();
         for(GVRKUms.UmsLine transaction : transactions) {
+            Transaction ta = new Transaction(transaction.customerref, transaction, Transaction.Service.OTHER);
+            pm.addTransaction(ta);
+
             StringBuilder sb = new StringBuilder(transaction.customerref+" | ");
             sb.append(transaction.valuta);
 
@@ -59,6 +55,21 @@ public class JobHandler {
             System.out.println(sb);
 
         }
+    }
+
+    private List<GVRKUms.UmsLine> getUmsLines(String startStr, String endStr) throws IOException {
+        Job umsatzJob = new Job("KUmsAllCamt", new HashMap<>()); //lowlevel: KUmsZeitCamt
+        umsatzJob.setParam("startdate", startStr);
+        umsatzJob.setParam("enddate", endStr);
+
+        BankingConnection bankingConnection = new BankingConnection(defaults);
+        // all jobs of type "KUmsAll"/"KUmsAllCamt" have results of "GVRKUms"
+        GVRKUms result = (GVRKUms) bankingConnection.sendJob(umsatzJob);
+
+
+        // print transactions
+        List<GVRKUms.UmsLine> transactions = result.getFlatData();
+        return transactions;
     }
 
 }
