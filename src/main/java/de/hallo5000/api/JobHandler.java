@@ -1,7 +1,64 @@
 package de.hallo5000.api;
 
+import de.hallo5000.BankingConnection;
+import de.hallo5000.datatypes.Job;
+import org.kapott.hbci.GV_Result.GVRKUms;
+import org.kapott.hbci.structures.Value;
+
+import java.io.IOException;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Properties;
+
 public class JobHandler {
 
-    //translate REST calls
+    private final Properties defaults;
+
+    public JobHandler(Properties defaults){
+        this.defaults = defaults;
+    }
+
+    void listTransactions() throws IOException {
+        // HBCI4Java wants ISO-format (YYYY-MM-DD) as String or as java.util.Date
+        LocalDate now = LocalDate.now();
+        LocalDate threeMonthsAgo = now.minusMonths(3);
+
+        String startStr = threeMonthsAgo.format(DateTimeFormatter.ISO_LOCAL_DATE);
+        String endStr = now.format(DateTimeFormatter.ISO_LOCAL_DATE);
+
+        // create job for getting transactions of the last three months
+        Job umsatzJob = new Job("KUmsAllCamt", new HashMap<>()); //lowlevel: KUmsZeitCamt
+        umsatzJob.setParam("startdate", startStr);
+        umsatzJob.setParam("enddate", endStr);
+
+        BankingConnection bankingConnection = new BankingConnection(defaults);
+        // all jobs of type "KUmsAll"/"KUmsAllCamt" have results of "GVRKUms"
+        GVRKUms result = (GVRKUms) bankingConnection.sendJob(umsatzJob);
+
+
+        // print transactions
+        List<GVRKUms.UmsLine> transactions = result.getFlatData();
+        for(GVRKUms.UmsLine transaction : transactions) {
+            StringBuilder sb = new StringBuilder(transaction.customerref+" | ");
+            sb.append(transaction.valuta);
+
+            Value v = transaction.value;
+            if (v != null) {
+                sb.append(": ");
+                sb.append(v);
+            }
+
+            List<String> zweck = transaction.usage;
+            if (zweck != null && !zweck.isEmpty()) {
+                sb.append(" - ");
+                sb.append(zweck.getFirst()); // first line of reference
+            }
+
+            System.out.println(sb);
+
+        }
+    }
 
 }

@@ -11,28 +11,51 @@ import java.nio.charset.StandardCharsets;
 
 public class RESTendpoint {
 
-    public void startHttpServer() throws IOException {
-        HttpServer server = HttpServer.create(new InetSocketAddress(8000), 0);
-        server.createContext("/api/createJob", new RESTCaller());
+    private final JobHandler jobHandler;
+    private HttpServer httpServer;
 
-        server.setExecutor(null);//set Threadpool
-        server.start();
+    public RESTendpoint(JobHandler jobHandler){
+        this.jobHandler = jobHandler;
     }
 
-    private static class RESTCaller implements HttpHandler {
+    public void startHttpServer() throws IOException {
+        httpServer = HttpServer.create(new InetSocketAddress(8000), 0);
+        httpServer.createContext("/api/createJob", new RESTCaller());
+        httpServer.createContext("/api/createJob/listTransactions", new RESTCaller());
+
+        httpServer.setExecutor(null);//set Threadpool
+        httpServer.start();
+    }
+
+    public void stopHttpServer(){
+        httpServer.stop(0);
+    }
+
+    private class RESTCaller implements HttpHandler {
         @Override
         public void handle(HttpExchange exchange) throws IOException {
-            if("GET".equals(exchange.getRequestMethod())){String response = "Hello World";
+            String path = exchange.getHttpContext().getPath();
+            if("GET".equals(exchange.getRequestMethod())){
+                if(path.equals("/api/createJob/listTransactions")) jobHandler.listTransactions();
+            }else if("POST".equals(exchange.getRequestMethod())){
 
-                exchange.getResponseHeaders().set("Content-Type", "text/plain; charset=UTF-8");//set header (probably json in prod)
+            }else if("PUT".equals(exchange.getRequestMethod())){
 
-                // 3. Statuscode 200 (OK) und Länge der Antwort senden
-                exchange.sendResponseHeaders(200, response.getBytes(StandardCharsets.UTF_8).length);
+            }else if("PATCH".equals(exchange.getRequestMethod())){
 
-                // 4. Body schreiben und schließen
-                try(OutputStream os = exchange.getResponseBody()){
-                    os.write(response.getBytes(StandardCharsets.UTF_8));
-                }
+            }else if("DELETE".equals(exchange.getRequestMethod())){
+
+            }
+            String response = "Hello World";
+
+            exchange.getResponseHeaders().set("Content-Type", "text/plain; charset=UTF-8");//set header (probably json in prod)
+
+            // 3. Statuscode 200 (OK) und Länge der Antwort senden
+            exchange.sendResponseHeaders(200, response.getBytes(StandardCharsets.UTF_8).length);
+
+            // 4. Body schreiben und schließen
+            try(OutputStream os = exchange.getResponseBody()){
+                os.write(response.getBytes(StandardCharsets.UTF_8));
             }
             exchange.sendResponseHeaders(406, -1);
 

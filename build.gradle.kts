@@ -12,6 +12,7 @@ repositories {
 
 dependencies {
     implementation("com.github.hbci4j:hbci4j-core:4.1.7")
+    implementation("org.postgresql:postgresql:42.1.4")
 }
 
 java {

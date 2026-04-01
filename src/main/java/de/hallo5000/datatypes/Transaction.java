@@ -11,20 +11,14 @@ public class Transaction {
         OTHER
     }
 
-    private final String customerId;
     private final GVRKUms.UmsLine transaction;
     private final Service service;
     private boolean checked;
 
     public Transaction(String customerId, GVRKUms.UmsLine transaction, Service service){
-        this.customerId = customerId;
         this.transaction = transaction;
         this.service = service;
         checked = false;
-    }
-
-    public String getCustomerId() {
-        return customerId;
     }
 
     public GVRKUms.UmsLine getTransaction() {
