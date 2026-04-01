@@ -4,18 +4,11 @@ import org.kapott.hbci.GV_Result.GVRKUms;
 
 public class Transaction {
 
-    public enum Service{
-        EWASH,
-        PRINTER,
-        MEMBERSHIP,
-        OTHER
-    }
-
     private final GVRKUms.UmsLine transaction;
-    private final Service service;
+    private final String service;
     private boolean checked;
 
-    public Transaction(String customerId, GVRKUms.UmsLine transaction, Service service){
+    public Transaction(String customerId, GVRKUms.UmsLine transaction, String service){
         this.transaction = transaction;
         this.service = service;
         checked = false;
@@ -25,7 +18,7 @@ public class Transaction {
         return transaction;
     }
 
-    public Service getService() {
+    public String getService() {
         return service;
     }
 

@@ -34,7 +34,7 @@ public class JobHandler {
         List<GVRKUms.UmsLine> transactions = getUmsLines(startStr, endStr);
         PostgresManager pm = new PostgresManager();
         for(GVRKUms.UmsLine transaction : transactions) {
-            Transaction ta = new Transaction(transaction.customerref, transaction, Transaction.Service.OTHER);
+            Transaction ta = new Transaction(transaction.customerref, transaction, "OTHER");
             pm.addTransaction(ta);
 
             StringBuilder sb = new StringBuilder(transaction.customerref+" | ");
